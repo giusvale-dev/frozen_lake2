@@ -1,0 +1,4 @@
+numpy
+gymnasium
+matplot
+gymnasium[box2d]

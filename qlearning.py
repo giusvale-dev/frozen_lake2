@@ -76,9 +76,53 @@ def train_deterministic(
     env.close()
     return Q, policy, rewards_per_episodes
 
+def train_stochastic(
+    env: Env,
+    num_episodes: int = 1000,
+    discount_factor: float = 0.95,
+    epsilon: float = 0.9,
+    learning_rate: float = 0.1
+):
+    n_states = env.observation_space.n
+    n_actions = env.action_space.n
+
+    Q = np.zeros((n_states, n_actions))
+    rewards_per_episodes = [0] * num_episodes
+
+    for episode in range(num_episodes):
+
+        epsilon = epsilon_decay(episode=episode, epsilon_start=epsilon, num_episodes=num_episodes)
+        done = False
+        state, _ = env.reset()
+
+        while not done:
+            # ε-greedy action selection
+            if np.random.rand() < epsilon:
+                action = env.action_space.sample()
+            else:
+                action = np.argmax(Q[state, :])
+
+            next_state, reward, truncated, terminated, _ = env.step(action)
+            done = terminated or truncated
+
+            # Q-learning update with learning rate alpha
+            Q[state, action] = Q[state, action] + learning_rate * (
+                    reward + discount_factor * np.max(Q[next_state, :]) - Q[state, action]
+                )
+            
+            state = next_state
+
+            if reward == 1:
+                rewards_per_episodes[episode] = 1
+
+    policy = np.argmax(Q, axis=1)
+
+    env.close()
+    return Q, policy, rewards_per_episodes
+
 
 def run_agent(env, policy, num_episodes):
-    win_count = 0
+    results = []
     for _ in range(num_episodes):
         done = False
         state = env.reset()[0]
@@ -87,6 +131,6 @@ def run_agent(env, policy, num_episodes):
             new_state, reward, terminated, truncated, _ = env.step(action)
             state = new_state
             done = terminated or truncated
-        if reward > 0:
-            win_count += 1
-    return win_count / num_episodes  # Return success rate
+        results.append(1 if reward > 0 else 0)
+    success_rate = sum(results) / num_episodes
+    return success_rate, results

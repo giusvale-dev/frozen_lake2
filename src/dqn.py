@@ -32,50 +32,44 @@ def epsilon_decay(episode, epsilon_min=0.05, epsilon_start=0.9, decay_rate=0.995
     epsilon = epsilon_start * (decay_rate ** episode)
     return max(epsilon, epsilon_min)
 
+class DQN2L(nn.Module):
+
+    def __init__(self, n_observations, n_actions):
+        super(DQN2L, self).__init__()
+        self.layer1 = nn.Linear(n_observations, 16)
+        self.layer2 = nn.Linear(16, n_actions)
+
+    def forward(self, x):
+        x = F.relu(self.layer1(x))
+        return self.layer2(x)
+
 class DQN3L(nn.Module):
 
     def __init__(self, n_observations, n_actions):
         super(DQN3L, self).__init__()
-        self.layer1 = nn.Linear(n_observations, 64)
-        self.layer2 = nn.Linear(64, 32)
-        self.layer3 = nn.Linear(32, n_actions)
+        self.layer1 = nn.Linear(n_observations, 32)
+        self.layer2 = nn.Linear(32, 16)
+        self.layer3 = nn.Linear(16, n_actions)
 
     def forward(self, x):
         x = F.relu(self.layer1(x))
         x = F.relu(self.layer2(x))
         return self.layer3(x)
-
+    
 class DQN4L(nn.Module):
 
     def __init__(self, n_observations, n_actions):
         super(DQN4L, self).__init__()
         self.layer1 = nn.Linear(n_observations, 64)
-        self.layer2 = nn.Linear(64, 64)
-        self.layer3 = nn.Linear(64, 32)
-        self.layer4 = nn.Linear(32, n_actions)
+        self.layer2 = nn.Linear(64, 32)
+        self.layer3 = nn.Linear(32, 16)
+        self.layer4 = nn.Linear(16, n_actions)
 
     def forward(self, x):
         x = F.relu(self.layer1(x))
         x = F.relu(self.layer2(x))
         x = F.relu(self.layer3(x))
         return self.layer4(x)
-    
-class DQN5L(nn.Module):
-
-    def __init__(self, n_observations, n_actions):
-        super(DQN5L, self).__init__()
-        self.layer1 = nn.Linear(n_observations, 128)
-        self.layer2 = nn.Linear(128, 64)
-        self.layer3 = nn.Linear(64, 64)
-        self.layer4 = nn.Linear(64, 32)
-        self.layer5 = nn.Linear(32, n_actions)
-
-    def forward(self, x):
-        x = F.relu(self.layer1(x))
-        x = F.relu(self.layer2(x))
-        x = F.relu(self.layer3(x))
-        x = F.relu(self.layer4(x))
-        return self.layer5(x)
 
 
 class ReplayMemory(object):
@@ -94,7 +88,7 @@ class ReplayMemory(object):
         return len(self.memory)
 
 def select_action(state, steps_done, n_actions, policy_net, device,
-                  eps_start=0.9, eps_end=0.01, decay_rate=0.995, num_episodes=1000):
+                  eps_start=0.995, eps_end=0.05, decay_rate=0.995, num_episodes=1000):
     # Epsilon decay
     epsilon = epsilon_decay(steps_done, epsilon_min=eps_end, epsilon_start=eps_start, decay_rate=decay_rate, num_episodes=num_episodes)
     
@@ -132,8 +126,7 @@ def optimize_model(optimizer: optim.Adam, policy_net: nn.Module, memory: ReplayM
     # Expected Q value
     expected_state_action_values = reward_batch + (gamma * next_state_values)
 
-    # Loss = Huber loss (smooth L1)
-    criterion = nn.SmoothL1Loss()
+    criterion = nn.MSELoss()
     loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
 
     # Optimize the model
@@ -195,8 +188,9 @@ def train(env:gym.Env, policy_net: nn.Module, num_episodes=50, learning_rate=0.1
 
     return q_values.cpu(), policy, rewards_per_episodes
 
-def run_trained_agent(policy_net: nn.Module, env, num_episodes=10):
-    policy_net.eval()
+def run_trained_agent(policy, env, num_episodes=1000):
+    rewards_per_episodes = [0] * num_episodes
+    
     n_actions = get_n_actions(env)
     n_observations = get_n_observations(env)
 
@@ -208,14 +202,15 @@ def run_trained_agent(policy_net: nn.Module, env, num_episodes=10):
 
         while not done:
             with torch.no_grad():
-                q_values = policy_net(state)
-                action = q_values.argmax(dim=1).item()
+                action = policy[state_idx]
+
 
             observation, reward, terminated, truncated, _ = env.step(action)
             total_reward += reward
             done = terminated or truncated
 
             if not done:
-                state = F.one_hot(torch.tensor(observation), num_classes=n_observations).float().unsqueeze(0)
+                state_idx = observation
 
-        print(f"Episode {i+1}: Total Reward: {total_reward}")
+        rewards_per_episodes[i] = total_reward
+    return rewards_per_episodes

@@ -1,5 +1,5 @@
 from qlearning import train_deterministic, build_env, run_agent, train_stochastic
-from dqn import DQN3L, DQN4L, DQN5L, get_device, make_env, train, run_trained_agent
+from dqn import DQN2L, DQN3L, DQN4L, get_device, make_env, train, run_trained_agent
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -7,7 +7,8 @@ import seaborn as sns
 gamma_label = '\u03B3'
 alpha_label = '\u03B1'
 epsilon_label = '\u03B5'
-NUM_EPISODES = 10000
+NUM_EPISODES = 3000
+MEMORY_SIZE = 5000
 
 def plot_cumulative_wins_vs_episode(series_dict, num_episodes, title="Cumulative Wins vs Episode", saveas="cumulative_wins_vs_episode.png"):
     cumulative_episodes = np.arange(1, num_episodes + 1)
@@ -181,47 +182,131 @@ def stochastic_analysis_discount_factor():
 
     plot_success_rate(series_dict=running_series, num_episodes=NUM_EPISODES, title="Success Rate vs Episode (Discount Factor Analysis)", saveas="success_rate_vs_episode_discount_factor.png")
 
+def dqn_vs_qlearning(stochastic: bool = True, map_name: str="4x4"):
+
+    qlearning_rewards = []
+    qlearning_policy = None
+
+    q_learning_env = build_env(stochastic=stochastic, map_name=map_name, render_mode=None)
+    # Train Q-learning
+    print("Training Q-learning agent...")
+    if stochastic:
+        _, qlearning_policy, qlearning_rewards = train_stochastic(env=q_learning_env, epsilon=0.995, num_episodes=NUM_EPISODES, learning_rate=0.1, discount_factor=0.9)
+    else:
+        _, qlearning_policy, qlearning_rewards = train_deterministic(env=q_learning_env, epsilon=0.995, num_episodes=NUM_EPISODES, discount_factor=0.9)
+    print("Q-learning training completed.")
+
+    # Train DQNs
+    env2l = make_env(is_slippery=stochastic, map_name=map_name, render_mode=None)
+    dqn2l = DQN2L(env2l.observation_space.n, env2l.action_space.n)
+
+    print("Training DQN with 2 layers...")
+    _, policy2l, rewards_2l = train(env2l, dqn2l, num_episodes=NUM_EPISODES, learning_rate=0.1,gamma=0.9, batch_size=32, memory_size=MEMORY_SIZE)
+    print("Training completed for DQN with 2 layers.")
+
+    env3l = make_env(is_slippery=stochastic, map_name=map_name, render_mode=None)
+    dqn3l = DQN3L(env3l.observation_space.n, env3l.action_space.n)
+
+    print("Training DQN with 3 layers...")
+    _, policy3l, rewards_3l = train(env3l, dqn3l, num_episodes=NUM_EPISODES, learning_rate=0.1,gamma=0.9, batch_size=32, memory_size=MEMORY_SIZE)
+    print("Training completed for DQN with 3 layers.")
+
+    # env4l = make_env(is_slippery=stochastic, map_name=map_name, render_mode=None)
+    # dqn4l = DQN4L(env4l.observation_space.n, env4l.action_space.n)
+
+    # print("Training DQN with 4 layers...")
+    # _, policy4l, rewards_4l = train(env4l, dqn4l, num_episodes=NUM_EPISODES, learning_rate=0.1,gamma=0.9, batch_size=32, memory_size=MEMORY_SIZE)
+    # print("Training completed for DQN with 4 layers.")
+    
+    # Plot training results
+    training_series = {
+        "DQN 2 layers": rewards_2l,
+        "DQN 3 layers": rewards_3l,
+        # "DQN 4 layers": rewards_4l,
+        "Q-learning": qlearning_rewards
+    }
+    
+    plot_cumulative_wins_vs_episode(series_dict=training_series, num_episodes=NUM_EPISODES, title="Wins vs Episode (DQNs vs Q-Learning)", saveas="dqn_vs_qlearning_training_curve.png")
+
+    running_series2l = run_trained_agent(policy2l, env2l, num_episodes=NUM_EPISODES)
+
+    running_series3l = run_trained_agent(policy3l, env3l, num_episodes=NUM_EPISODES)
+
+    # running_series4l = run_trained_agent(policy4l, env4l, num_episodes=NUM_EPISODES)
+
+    _, running_qlearning_series = run_agent(q_learning_env, qlearning_policy, num_episodes=NUM_EPISODES)
+    
+    
+    running_series = { 
+        "DQN 2 Layers": running_series2l,
+        "DQN 3 Layers": running_series3l,
+        # "DQN 4 Layers": running_series4l,
+        "Q-learning": running_qlearning_series
+    }
+
+    plot_success_rate(series_dict=running_series, num_episodes=NUM_EPISODES, title="Success Rate vs Episode (DQN vs Q-Learning)", saveas="dqn_vs_qlearning_success_rate.png")
+
+    
+
 
 def stocastic_analysis_dqn():
    
-    env = make_env(is_slippery=True, map_name="4x4", render_mode=None)
-    dqn3l = DQN3L(env.observation_space.n, env.action_space.n)
+    env2l = make_env(is_slippery=True, map_name="4x4", render_mode=None)
+    dqn2l = DQN2L(env2l.observation_space.n, env2l.action_space.n)
+
+    print("Training DQN with 2 layers...")
+    _, policy2l, rewards_2l = train(env2l, dqn2l, num_episodes=NUM_EPISODES, learning_rate=0.1,gamma=0.9, batch_size=32, memory_size=MEMORY_SIZE)
+    print("Training completed for DQN with 2 layers.")
+
+    env3l = make_env(is_slippery=True, map_name="4x4", render_mode=None)
+    dqn3l = DQN3L(env3l.observation_space.n, env3l.action_space.n)
 
     print("Training DQN with 3 layers...")
-    _, policy, rewards_3l = train(env, dqn3l, num_episodes=3000, learning_rate=0.1,gamma=0.9, batch_size=32, memory_size=1000)
+    _, policy3l, rewards_3l = train(env3l, dqn3l, num_episodes=NUM_EPISODES, learning_rate=0.1,gamma=0.9, batch_size=32, memory_size=MEMORY_SIZE)
     print("Training completed for DQN with 3 layers.")
 
-    env = make_env(is_slippery=True, map_name="4x4", render_mode=None)
-    dqn4l = DQN4L(env.observation_space.n, env.action_space.n)
+    env4l = make_env(is_slippery=True, map_name="4x4", render_mode=None)
+    dqn4l = DQN4L(env4l.observation_space.n, env4l.action_space.n)
 
     print("Training DQN with 4 layers...")
-    _, policy, rewards_4l = train(env, dqn4l, num_episodes=3000, learning_rate=0.1,gamma=0.9, batch_size=32, memory_size=1000)
+    _, policy4l, rewards_4l = train(env4l, dqn4l, num_episodes=NUM_EPISODES, learning_rate=0.1,gamma=0.9, batch_size=32, memory_size=MEMORY_SIZE)
     print("Training completed for DQN with 4 layers.")
 
-    env = make_env(is_slippery=True, map_name="4x4", render_mode=None)
-    dqn5l = DQN5L(env.observation_space.n, env.action_space.n)
-
-    print("Training DQN with 5 layers...")
-    _, policy, rewards_5l = train(env, dqn5l, num_episodes=3000, learning_rate=0.1,gamma=0.9, batch_size=32, memory_size=1000)
-    print("Training completed for DQN with 5 layers.")
-
     training_series = { 
+        "DQN 2 Layers": rewards_2l,
         "DQN 3 Layers": rewards_3l,
-        "DQN 4 Layers": rewards_4l,
-        "DQN 5 Layers": rewards_5l
+        "DQN 4 Layers": rewards_4l
     }
 
-    plot_cumulative_wins_vs_episode(series_dict=training_series, num_episodes=3000, title="Cumulative Wins vs Episode (DQN Analysis)", saveas="dqn_analysis.png")
+    running_series2l = run_trained_agent(policy2l, env2l, num_episodes=NUM_EPISODES)
+
+    running_series3l = run_trained_agent(policy3l, env3l, num_episodes=NUM_EPISODES)
+
+    running_series4l = run_trained_agent(policy4l, env4l, num_episodes=NUM_EPISODES)
+    
+    
+    running_series = { 
+        "DQN 2 Layers": running_series2l,
+        "DQN 3 Layers": running_series3l,
+        "DQN 4 Layers": running_series4l
+    }
+
+    plot_success_rate(series_dict=running_series, num_episodes=NUM_EPISODES, title="Success Rate vs Episode (DQN Analysis)", saveas="success_rate_vs_episode_dqn.png")
+
+    plot_cumulative_wins_vs_episode(series_dict=training_series, num_episodes=NUM_EPISODES, title="Cumulative Wins vs Episode (DQN Analysis)", saveas="dqn_analysis.png")
+
 
 def main():
-    selection = input("Select 1 for non-stochastic analysys, 2 for stochastic analysis, 3 for DQN analysis: ...")
+    selection = input("Select 1 for deterministic analysys, 2 for stochastic analysis")
+
+
     if selection == "1":
         non_stochastic_analysis()
     elif selection == "2":
         stochastic_analysis_learning_rate()
         stochastic_analysis_discount_factor()
     elif selection == "3":
-        stocastic_analysis_dqn()
+        dqn_vs_qlearning()
     else:
         print("Invalid selection. Please choose 1, 2 or 3.")
 

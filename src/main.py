@@ -1,4 +1,5 @@
 from qlearning import train_deterministic, build_env, run_agent, train_stochastic
+from dqn import DQN3L, DQN4L, DQN5L, get_device, make_env, train, run_trained_agent
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -181,15 +182,48 @@ def stochastic_analysis_discount_factor():
     plot_success_rate(series_dict=running_series, num_episodes=NUM_EPISODES, title="Success Rate vs Episode (Discount Factor Analysis)", saveas="success_rate_vs_episode_discount_factor.png")
 
 
+def stocastic_analysis_dqn():
+   
+    env = make_env(is_slippery=True, map_name="4x4", render_mode=None)
+    dqn3l = DQN3L(env.observation_space.n, env.action_space.n)
+
+    print("Training DQN with 3 layers...")
+    _, policy, rewards_3l = train(env, dqn3l, num_episodes=3000, learning_rate=0.1,gamma=0.9, batch_size=32, memory_size=1000)
+    print("Training completed for DQN with 3 layers.")
+
+    env = make_env(is_slippery=True, map_name="4x4", render_mode=None)
+    dqn4l = DQN4L(env.observation_space.n, env.action_space.n)
+
+    print("Training DQN with 4 layers...")
+    _, policy, rewards_4l = train(env, dqn4l, num_episodes=3000, learning_rate=0.1,gamma=0.9, batch_size=32, memory_size=1000)
+    print("Training completed for DQN with 4 layers.")
+
+    env = make_env(is_slippery=True, map_name="4x4", render_mode=None)
+    dqn5l = DQN5L(env.observation_space.n, env.action_space.n)
+
+    print("Training DQN with 5 layers...")
+    _, policy, rewards_5l = train(env, dqn5l, num_episodes=3000, learning_rate=0.1,gamma=0.9, batch_size=32, memory_size=1000)
+    print("Training completed for DQN with 5 layers.")
+
+    training_series = { 
+        "DQN 3 Layers": rewards_3l,
+        "DQN 4 Layers": rewards_4l,
+        "DQN 5 Layers": rewards_5l
+    }
+
+    plot_cumulative_wins_vs_episode(series_dict=training_series, num_episodes=3000, title="Cumulative Wins vs Episode (DQN Analysis)", saveas="dqn_analysis.png")
+
 def main():
-    selection = input("Select 1 for non-stochastic analysys, 2 for stochastic analysis: ")
+    selection = input("Select 1 for non-stochastic analysys, 2 for stochastic analysis, 3 for DQN analysis: ...")
     if selection == "1":
         non_stochastic_analysis()
     elif selection == "2":
         stochastic_analysis_learning_rate()
         stochastic_analysis_discount_factor()
+    elif selection == "3":
+        stocastic_analysis_dqn()
     else:
-        print("Invalid selection. Please choose 1 or 2.")
+        print("Invalid selection. Please choose 1, 2 or 3.")
 
 
 if __name__=="__main__":

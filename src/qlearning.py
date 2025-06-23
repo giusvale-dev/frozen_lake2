@@ -28,7 +28,7 @@ def train_deterministic(
     # Iterate over num_episodes
     for episode in range(num_episodes):
         
-        epsilon = epsilon_decay(episode=episode, epsilon_start=epsilon, num_episodes=num_episodes)
+        #epsilon = epsilon_decay(episode=episode, epsilon_start=epsilon, num_episodes=num_episodes)
         done = False
     
         # Step 2 - observe the current state

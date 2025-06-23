@@ -9,9 +9,10 @@ from util import epsilon_decay
 gamma_label = '\u03B3'
 alpha_label = '\u03B1'
 epsilon_label = '\u03B5'
-NUM_EPISODES = 3000
-MEMORY_SIZE = 3000
-BATCH_SIZE = 256
+
+NUM_EPISODES = 5000
+MEMORY_SIZE = 10000
+BATCH_SIZE = 64
 
 def plot_epsilon_decay():
     buffer = []
@@ -100,7 +101,7 @@ def dqn_vs_qlearning(stochastic: bool = True, map_name: str="4x4"):
     # Train Q-learning
     print("Training Q-learning agent...")
     if stochastic:
-        _, qlearning_policy, qlearning_rewards = train_stochastic(env=q_learning_env, epsilon_start=1, num_episodes=NUM_EPISODES, learning_rate=0.1, discount_factor=0.995)
+        _, qlearning_policy, qlearning_rewards = train_stochastic(env=q_learning_env, epsilon_start=1, num_episodes=NUM_EPISODES, learning_rate=0.001, discount_factor=0.995)
     else:
         _, qlearning_policy, qlearning_rewards = train_deterministic(env=q_learning_env, epsilon=1, num_episodes=NUM_EPISODES, discount_factor=0.995)
     print("Q-learning training completed.")
@@ -110,7 +111,7 @@ def dqn_vs_qlearning(stochastic: bool = True, map_name: str="4x4"):
     dqn2l = DQN2L(env2l.observation_space.n, env2l.action_space.n)
 
     print("Training DQN with 2 layers...")
-    _, policy2l, rewards_2l = train(env2l, dqn2l, num_episodes=NUM_EPISODES, learning_rate=0.1,gamma=0.995, batch_size=BATCH_SIZE, memory_size=MEMORY_SIZE)
+    _, policy2l, rewards_2l = train(env2l, dqn2l, num_episodes=NUM_EPISODES, learning_rate=0.001,gamma=0.995, batch_size=BATCH_SIZE, memory_size=MEMORY_SIZE)
     print("Training completed for DQN with 2 layers.")
 
     # env3l = make_env(is_slippery=stochastic, map_name=map_name, render_mode=None)
@@ -163,9 +164,11 @@ def main():
     if selection == "1":
         #plot_epsilon_decay()
         dqn_vs_qlearning(stochastic=True, map_name="4x4")
-        dqn_vs_qlearning(stochastic=True, map_name="8x8")
+        #dqn_vs_qlearning(stochastic=True, map_name="8x8")
         #dqn_vs_qlearning(stochastic=True, map_name="8x8")
         #dqn_vs_qlearning(stochastic=True, map_name="16x16")
+    elif selection == "2":
+        dqn_vs_qlearning(stochastic=True, map_name="8x8")
     else:
         dqn_vs_qlearning(stochastic=False, map_name="4x4")
         #dqn_vs_qlearning(stochastic=False, map_name="8x8")

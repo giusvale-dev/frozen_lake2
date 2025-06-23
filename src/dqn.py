@@ -81,10 +81,7 @@ class ReplayMemory(object):
     def __len__(self):
         return len(self.memory)
 
-def select_action(state, steps_done, n_actions, policy_net, device,
-                  eps_start=0.995, eps_end=0.05, num_episodes=1000):
-    # Epsilon decay
-    epsilon = epsilon_decay(steps_done, epsilon_min=eps_end, epsilon_start=eps_start, num_episodes=num_episodes)
+def select_action(state, n_actions, policy_net, device, epsilon):
     
     if random.random() > epsilon:
         with torch.no_grad():
@@ -207,8 +204,10 @@ def train(env:gym.Env, policy_net: nn.Module, num_episodes=50, learning_rate=0.1
         total_reward = 0
         done = False
 
+        epsilon = epsilon_decay(episode=episode, num_episodes=num_episodes)
+
         while not done:
-            action = select_action(state, steps_done, n_actions, policy_net, device, num_episodes=num_episodes, eps_start=1)
+            action = select_action(state, n_actions, policy_net, device, epsilon)
             steps_done += 1
 
             observation, reward, terminated, truncated, _ = env.step(action.item())

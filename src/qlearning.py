@@ -2,16 +2,11 @@ import gymnasium as gym
 from gymnasium import Env
 import numpy as np
 import math
+import random
+from util import epsilon_decay
 
 def build_env(stochastic: bool, map_name: str, render_mode: str) -> Env:
     return gym.make('FrozenLake-v1', map_name=map_name, is_slippery=stochastic, render_mode=render_mode)
-
-def epsilon_decay(episode, epsilon_min=0.05, epsilon_start=0.9, decay_rate=0.995, num_episodes = 1000):
-    
-    if episode < num_episodes * 0.1:
-        return epsilon_start
-    epsilon = epsilon_start * (decay_rate ** episode)
-    return max(epsilon, epsilon_min)
 
 def train_deterministic(
     env: Env,
@@ -80,7 +75,7 @@ def train_stochastic(
     env: Env,
     num_episodes: int = 1000,
     discount_factor: float = 0.95,
-    epsilon: float = 0.9,
+    epsilon_start: float = 0.9,
     learning_rate: float = 0.1
 ):
     n_states = env.observation_space.n
@@ -89,15 +84,16 @@ def train_stochastic(
     Q = np.zeros((n_states, n_actions))
     rewards_per_episodes = [0] * num_episodes
 
-    for episode in range(num_episodes):
+    epsilon = epsilon_start
 
-        epsilon = epsilon_decay(episode=episode, epsilon_start=epsilon, num_episodes=num_episodes)
+    for episode in range(num_episodes):
+        
         done = False
         state, _ = env.reset()
 
         while not done:
             # ε-greedy action selection
-            if np.random.rand() < epsilon:
+            if random.random() < epsilon:
                 action = env.action_space.sample()
             else:
                 action = np.argmax(Q[state, :])
@@ -114,6 +110,8 @@ def train_stochastic(
 
             if reward == 1:
                 rewards_per_episodes[episode] = 1
+        
+        epsilon = epsilon_decay(episode=episode, epsilon_start=epsilon_start, num_episodes=num_episodes)
 
     policy = np.argmax(Q, axis=1)
 

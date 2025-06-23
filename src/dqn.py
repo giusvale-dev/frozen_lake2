@@ -7,6 +7,7 @@ import gymnasium as gym
 import torch.optim as optim
 import math
 from itertools import count
+from util import epsilon_decay
 
 # A single transition in the environment (s, a, s', r)
 Transition = namedtuple('Transition',
@@ -24,13 +25,6 @@ def get_n_actions(env:gym.Env):
 
 def get_n_observations(env:gym.Env):
     return env.observation_space.n
-
-def epsilon_decay(episode, epsilon_min=0.05, epsilon_start=0.9, decay_rate=0.995, num_episodes = 1000):
-    
-    if episode < num_episodes * 0.1:
-        return epsilon_start
-    epsilon = epsilon_start * (decay_rate ** episode)
-    return max(epsilon, epsilon_min)
 
 class DQN2L(nn.Module):
 
@@ -88,9 +82,9 @@ class ReplayMemory(object):
         return len(self.memory)
 
 def select_action(state, steps_done, n_actions, policy_net, device,
-                  eps_start=0.995, eps_end=0.05, decay_rate=0.995, num_episodes=1000):
+                  eps_start=0.995, eps_end=0.05, num_episodes=1000):
     # Epsilon decay
-    epsilon = epsilon_decay(steps_done, epsilon_min=eps_end, epsilon_start=eps_start, decay_rate=decay_rate, num_episodes=num_episodes)
+    epsilon = epsilon_decay(steps_done, epsilon_min=eps_end, epsilon_start=eps_start, num_episodes=num_episodes)
     
     if random.random() > epsilon:
         with torch.no_grad():
@@ -98,42 +92,96 @@ def select_action(state, steps_done, n_actions, policy_net, device,
     else:
         return torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long)
 
-def optimize_model(optimizer: optim.Adam, policy_net: nn.Module, memory: ReplayMemory, batch_size=128, gamma=0.95):
+# def optimize_model(optimizer: optim.Adam, policy_net: nn.Module, memory: ReplayMemory, batch_size=128, gamma=0.95):
 
+#     # Ensure that we have sufficient experience from a full batch, otherwise skip training
+#     if len(memory) < batch_size:
+#         return
+
+#     # Randomly take a batch of tranistions from the ReplayMemory 
+#     transitions = memory.sample(batch_size)
+
+#     # * operator unpack the list so we will have:
+#     # Transition('state1', 'action1', 'next_state1', 'reward1')
+#     # Transition('state2', 'action2', 'next_state2', 'reward2')
+#     # ...
+#     # Then zip converts a list of tuples into a tuples of lists, e,g:
+#     # 
+#     # ( (state1, state2, ...),     # all states
+#     #   (action1, action2, ...),   # all actions
+#     #   (reward1, reward2, ...),   # all rewards
+#     #   (next_state1, ...),        # all next_states
+#     #   (reward1, reward2, ...)    # all rewards
+#     # )
+#     # At the end of this procedure batch will be a new Transition object where each field is a batch of values (list of tensors)
+#     # The final result will be:
+#     # batch.state       # tuple of all states
+#     # batch.action      # tuple of all actions
+#     # batch.reward      # tuple of all rewards
+#     # batch.next_state  # tuple of all next_states
+
+#     batch = Transition(*zip(*transitions))
+
+#     # return torch.device (CPU or CUDA)
+#     device = get_device()
+
+#     # Mask and tensors
+#     non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)),
+#                                   device=device, dtype=torch.bool)
+#     non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
+#     state_batch = torch.cat(batch.state)
+#     action_batch = torch.cat(batch.action)
+#     reward_batch = torch.cat(batch.reward)
+
+#     # Compute Q(s_t, a)
+#     state_action_values = policy_net(state_batch).gather(1, action_batch)
+
+#     # Compute V(s_{t+1}) = max_a Q(s', a) for all next states using policy_net 
+#     next_state_values = torch.zeros(batch_size, device=device)
+#     with torch.no_grad():
+#         next_state_values[non_final_mask] = policy_net(non_final_next_states).max(1).values
+
+#     # Expected Q value
+#     expected_state_action_values = reward_batch + (gamma * next_state_values)
+
+#     criterion = nn.MSELoss()
+#     loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
+
+#     # Optimize the model
+#     optimizer.zero_grad()
+#     loss.backward()
+#     # In-place gradient clipping
+#     torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
+#     optimizer.step()
+
+def optimize_model(optimizer, policy_net, memory, batch_size=128, gamma=0.95):
     if len(memory) < batch_size:
         return
 
     transitions = memory.sample(batch_size)
     batch = Transition(*zip(*transitions))
-    device = get_device()
+    device = next(policy_net.parameters()).device
 
-    # Mask and tensors
-    non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)),
-                                  device=device, dtype=torch.bool)
-    non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
-    state_batch = torch.cat(batch.state)
-    action_batch = torch.cat(batch.action)
-    reward_batch = torch.cat(batch.reward)
+    state_batch = torch.cat(batch.state).to(device)
+    action_batch = torch.cat(batch.action).to(device)
+    reward_batch = torch.cat(batch.reward).to(device)
 
-    # Compute Q(s_t, a)
+    non_final_mask = torch.tensor([s is not None for s in batch.next_state], device=device, dtype=torch.bool)
+    non_final_next_states = torch.cat([s for s in batch.next_state if s is not None]).to(device)
+
     state_action_values = policy_net(state_batch).gather(1, action_batch)
 
-    # Compute V(s_{t+1}) = max_a Q(s', a) for all next states using policy_net 
     next_state_values = torch.zeros(batch_size, device=device)
-    with torch.no_grad():
-        next_state_values[non_final_mask] = policy_net(non_final_next_states).max(1).values
+    if non_final_next_states.size(0) > 0:
+        next_state_values[non_final_mask] = policy_net(non_final_next_states).max(1)[0].detach()
 
-    # Expected Q value
-    expected_state_action_values = reward_batch + (gamma * next_state_values)
+    expected_state_action_values = reward_batch + gamma * next_state_values
 
-    criterion = nn.MSELoss()
-    loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
+    loss_fn = nn.MSELoss()
+    loss = loss_fn(state_action_values.squeeze(), expected_state_action_values)
 
-    # Optimize the model
     optimizer.zero_grad()
     loss.backward()
-    # In-place gradient clipping
-    torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
     optimizer.step()
 
 
@@ -160,7 +208,7 @@ def train(env:gym.Env, policy_net: nn.Module, num_episodes=50, learning_rate=0.1
         done = False
 
         while not done:
-            action = select_action(state, steps_done, n_actions, policy_net, device, num_episodes=num_episodes)
+            action = select_action(state, steps_done, n_actions, policy_net, device, num_episodes=num_episodes, eps_start=1)
             steps_done += 1
 
             observation, reward, terminated, truncated, _ = env.step(action.item())
@@ -191,7 +239,6 @@ def train(env:gym.Env, policy_net: nn.Module, num_episodes=50, learning_rate=0.1
 def run_trained_agent(policy, env, num_episodes=1000):
     rewards_per_episodes = [0] * num_episodes
     
-    n_actions = get_n_actions(env)
     n_observations = get_n_observations(env)
 
     for i in range(num_episodes):
@@ -203,7 +250,6 @@ def run_trained_agent(policy, env, num_episodes=1000):
         while not done:
             with torch.no_grad():
                 action = policy[state_idx]
-
 
             observation, reward, terminated, truncated, _ = env.step(action)
             total_reward += reward

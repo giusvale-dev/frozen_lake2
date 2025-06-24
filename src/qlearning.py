@@ -12,7 +12,7 @@ def train_deterministic(
     env: Env,
     num_episodes: int = 1000,
     discount_factor: float = 0.95,
-    epsilon: float = 0.9
+    epsilon_start: float = 0.9
     
 ):
     n_states = env.observation_space.n
@@ -24,11 +24,10 @@ def train_deterministic(
 
     rewards_per_episodes = [0] * num_episodes # initialize to 0
 
-    
+    epsilon = epsilon_start
     # Iterate over num_episodes
     for episode in range(num_episodes):
         
-        #epsilon = epsilon_decay(episode=episode, epsilon_start=epsilon, num_episodes=num_episodes)
         done = False
     
         # Step 2 - observe the current state
@@ -40,7 +39,7 @@ def train_deterministic(
             # How does agent chooses next action? Eploitation vs Exploration
             
             # ε-greedy exploration
-            if np.random.rand() < epsilon:    
+            if np.random.rand() < epsilon_start:    
                 # Exploration
                 action = env.action_space.sample()
             else:
@@ -62,6 +61,7 @@ def train_deterministic(
             # Overwrite the item at index episode with value 1
             if reward == 1:
                 rewards_per_episodes[episode] = 1
+        epsilon_start = epsilon_decay(episode=episode, epsilon_min=0.05, epsilon_start=epsilon_start, num_episodes=num_episodes)
 
             
             

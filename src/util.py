@@ -9,7 +9,7 @@ def epsilon_decay(episode, epsilon_min=0.05, epsilon_start=0.9, num_episodes=100
     if episode < exploration_phase:
         return epsilon_start
 
-    # Linear decay from episode = exploration_phase to num_episodes
+    
     decay_duration = num_episodes - exploration_phase
     decay_progress = (episode - exploration_phase) / decay_duration
     epsilon = epsilon_start - decay_progress * (epsilon_start - epsilon_min)

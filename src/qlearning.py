@@ -39,7 +39,7 @@ def train_deterministic(
             # How does agent chooses next action? Eploitation vs Exploration
             
             # ε-greedy exploration
-            if np.random.rand() < epsilon_start:    
+            if np.random.rand() < epsilon:    
                 # Exploration
                 action = env.action_space.sample()
             else:
@@ -61,7 +61,7 @@ def train_deterministic(
             # Overwrite the item at index episode with value 1
             if reward == 1:
                 rewards_per_episodes[episode] = 1
-        epsilon_start = epsilon_decay(episode=episode, epsilon_min=0.05, epsilon_start=epsilon_start, num_episodes=num_episodes)
+        epsilon = epsilon_decay(episode=episode, epsilon_min=0.05, epsilon_start=epsilon_start, num_episodes=num_episodes)
 
             
             

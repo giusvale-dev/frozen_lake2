@@ -39,46 +39,6 @@ class DQN(nn.Module):
         x = self.net(x)
         return x
 
-class DQN2L(nn.Module):
-
-    def __init__(self, n_observations, n_actions):
-        super(DQN2L, self).__init__()
-        self.layer1 = nn.Linear(n_observations, 16)
-        self.layer2 = nn.Linear(16, n_actions)
-
-    def forward(self, x):
-        x = F.relu(self.layer1(x))
-        return self.layer2(x)
-
-class DQN3L(nn.Module):
-
-    def __init__(self, n_observations, n_actions):
-        super(DQN3L, self).__init__()
-        self.layer1 = nn.Linear(n_observations, 128)
-        self.layer2 = nn.Linear(128, 64)
-        self.layer3 = nn.Linear(64, n_actions)
-
-    def forward(self, x):
-        x = F.relu(self.layer1(x))
-        x = F.relu(self.layer2(x))
-        return self.layer3(x)
-    
-class DQN4L(nn.Module):
-
-    def __init__(self, n_observations, n_actions):
-        super(DQN4L, self).__init__()
-        self.layer1 = nn.Linear(n_observations, 64)
-        self.layer2 = nn.Linear(64, 32)
-        self.layer3 = nn.Linear(32, 16)
-        self.layer4 = nn.Linear(16, n_actions)
-
-    def forward(self, x):
-        x = F.relu(self.layer1(x))
-        x = F.relu(self.layer2(x))
-        x = F.relu(self.layer3(x))
-        return self.layer4(x)
-
-
 class ReplayMemory(object):
 
     def __init__(self, capacity):
@@ -101,68 +61,6 @@ def select_action(state, n_actions, policy_net, device, epsilon):
             return policy_net(state).argmax(dim=1).view(1, 1)
     else:
         return torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long)
-
-# def optimize_model(optimizer: optim.Adam, policy_net: nn.Module, memory: ReplayMemory, batch_size=128, gamma=0.95):
-
-#     # Ensure that we have sufficient experience from a full batch, otherwise skip training
-#     if len(memory) < batch_size:
-#         return
-
-#     # Randomly take a batch of tranistions from the ReplayMemory 
-#     transitions = memory.sample(batch_size)
-
-#     # * operator unpack the list so we will have:
-#     # Transition('state1', 'action1', 'next_state1', 'reward1')
-#     # Transition('state2', 'action2', 'next_state2', 'reward2')
-#     # ...
-#     # Then zip converts a list of tuples into a tuples of lists, e,g:
-#     # 
-#     # ( (state1, state2, ...),     # all states
-#     #   (action1, action2, ...),   # all actions
-#     #   (reward1, reward2, ...),   # all rewards
-#     #   (next_state1, ...),        # all next_states
-#     #   (reward1, reward2, ...)    # all rewards
-#     # )
-#     # At the end of this procedure batch will be a new Transition object where each field is a batch of values (list of tensors)
-#     # The final result will be:
-#     # batch.state       # tuple of all states
-#     # batch.action      # tuple of all actions
-#     # batch.reward      # tuple of all rewards
-#     # batch.next_state  # tuple of all next_states
-
-#     batch = Transition(*zip(*transitions))
-
-#     # return torch.device (CPU or CUDA)
-#     device = get_device()
-
-#     # Mask and tensors
-#     non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)),
-#                                   device=device, dtype=torch.bool)
-#     non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
-#     state_batch = torch.cat(batch.state)
-#     action_batch = torch.cat(batch.action)
-#     reward_batch = torch.cat(batch.reward)
-
-#     # Compute Q(s_t, a)
-#     state_action_values = policy_net(state_batch).gather(1, action_batch)
-
-#     # Compute V(s_{t+1}) = max_a Q(s', a) for all next states using policy_net 
-#     next_state_values = torch.zeros(batch_size, device=device)
-#     with torch.no_grad():
-#         next_state_values[non_final_mask] = policy_net(non_final_next_states).max(1).values
-
-#     # Expected Q value
-#     expected_state_action_values = reward_batch + (gamma * next_state_values)
-
-#     criterion = nn.MSELoss()
-#     loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
-
-#     # Optimize the model
-#     optimizer.zero_grad()
-#     loss.backward()
-#     # In-place gradient clipping
-#     torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
-#     optimizer.step()
 
 def optimize_model(optimizer, policy_net, memory, batch_size=128, gamma=0.95):
     if len(memory) < batch_size:

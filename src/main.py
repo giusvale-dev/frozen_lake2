@@ -65,64 +65,12 @@ def plot_qtable_heatmap(qtable: np.ndarray, title: str, filename: str):
     plt.savefig(filename)
     plt.clf()
 
-def dqn_vs_qlearning(stochastic: bool = True, map_name: str="4x4"):
-
-    qlearning_rewards = []
-    qlearning_policy = None
-    num_episodes = NUM_EPISODES_4x4 if map_name == "4x4" else NUM_EPISODES_8x8
-
-    q_learning_env = build_env(stochastic=stochastic, map_name=map_name, render_mode=None)
-    # Train Q-learning
-    print("Training Q-learning agent...")
-    if stochastic:
-        _, qlearning_policy, qlearning_rewards = train_stochastic(env=q_learning_env, epsilon_start=1, num_episodes=num_episodes, learning_rate=0.0001, discount_factor=0.995)
-    else:
-        _, qlearning_policy, qlearning_rewards = train_deterministic(env=q_learning_env, epsilon_start=1, num_episodes=num_episodes, discount_factor=0.995)
-    print("Q-learning training completed.")
-
-    # Train DQNs
-    env2l = make_env(is_slippery=stochastic, map_name=map_name, render_mode=None)
-    dqn2l = DQN2L(env2l.observation_space.n, env2l.action_space.n)
-
-    print("Training DQN...")
-    _, policy2l, rewards_2l = train(env2l, dqn2l, num_episodes=num_episodes, learning_rate=0.0001,gamma=0.995, batch_size=BATCH_SIZE if map_name == "4x4" else BATCH_SIZE_8x8, memory_size=MEMORY_SIZE if map_name == "4x4" else MEMORY_SIZE_8x8)
-    print("Training completed for DQN")
-
-    # Plot training results
-    training_series = {
-        "DQN": rewards_2l,
-        "Q-learning": qlearning_rewards
-    }
-    
-    plot_wins_vs_episodes(series_dict=training_series, num_episodes=num_episodes, title="Wins vs Episode (Train)", saveas=f"dqn_vs_qlearning_training_{map_name}_{"stochastic" if stochastic else "deterministic"}.png")
-
-    print("Evaluation DQN...")
-    env2l = make_env(is_slippery=stochastic, map_name=map_name, render_mode=None)
-    running_series2l = run_trained_agent(policy2l, env2l, num_episodes=num_episodes)
-    accuracy = np.sum(running_series2l)/num_episodes
-    
-    print(f"DQN: accuracy after training is {accuracy * 100:.2f}%")
-    print("Evaluation completed for DQN")
-
-    print("Evaluation of Q-Learning...")
-    _, running_qlearning_series = run_agent(q_learning_env, qlearning_policy, num_episodes=num_episodes)
-    accuracy = np.sum(running_qlearning_series)/num_episodes
-    print(f"Q-Learning: accuracy after training is {accuracy * 100:.2f}%")
-    print("Evaluation completed for Q-Learning")
-    
-    running_series = { 
-        "DQN ": running_series2l,
-        "Q-learning": running_qlearning_series
-    }
-
-    plot_wins_vs_episodes(series_dict=running_series, num_episodes=num_episodes, title="Wins vs Episode (Evaluation)", saveas=f"dqn_vs_qlearning_evaluation_{map_name}_{"stochastic" if stochastic else "deterministic"}.png")
-
 def dqn_vs_qlearning_4x4(stochastic: bool):
 
     qlearning_rewards = []
     qlearning_policy = None
     num_episodes = 5000
-    batch_size = 64
+    batch_size = 32
     memory_size = 10000
 
     q_learning_env = build_env(stochastic=stochastic, map_name="4x4", render_mode=None)
@@ -139,7 +87,12 @@ def dqn_vs_qlearning_4x4(stochastic: bool):
     dqn2l = DQN(input_states=env2l.observation_space.n, hidden_nodes=env2l.observation_space.n, out_states=env2l.action_space.n)
 
     print("Training DQN...")
-    _, policy2l, rewards_2l = train(env2l, dqn2l, num_episodes=num_episodes, learning_rate=0.0001,gamma=0.995, batch_size=batch_size, memory_size=memory_size)
+    policy2l = None
+    rewards_2l = None
+    if not stochastic:
+        _, policy2l, rewards_2l = train(env2l, dqn2l, num_episodes=num_episodes, learning_rate=0.001, gamma=0.8, batch_size=batch_size, memory_size=memory_size)
+    else:
+        _, policy2l, rewards_2l = train(env2l, dqn2l, num_episodes=num_episodes, learning_rate=0.001, gamma=0.995, batch_size=batch_size, memory_size=memory_size)
     print("Training completed for DQN")
 
     # Plot training results
@@ -183,9 +136,9 @@ def dqn_vs_qlearning_8x8(stochastic: bool):
     # Train Q-learning
     print("Training Q-learning agent...")
     if stochastic:
-        _, qlearning_policy, qlearning_rewards = train_stochastic(env=q_learning_env, epsilon_start=1, num_episodes=num_episodes, learning_rate=0.1, discount_factor=0.995)
+        _, qlearning_policy, qlearning_rewards = train_stochastic(env=q_learning_env, epsilon_start=1, num_episodes=num_episodes, learning_rate=0.1, discount_factor=0.9)
     else:
-        _, qlearning_policy, qlearning_rewards = train_deterministic(env=q_learning_env, epsilon_start=1, num_episodes=num_episodes, discount_factor=0.995)
+        _, qlearning_policy, qlearning_rewards = train_deterministic(env=q_learning_env, epsilon_start=1, num_episodes=num_episodes, discount_factor=0.9)
     print("Q-learning training completed.")
 
     env_dqn = make_env(is_slippery=stochastic, map_name="8x8", render_mode=None)
@@ -195,10 +148,10 @@ def dqn_vs_qlearning_8x8(stochastic: bool):
     print("Training DQN...")
     if not stochastic:
         # Deterministic case
-        _, policy3l, rewards_3l = train(env_dqn, dqn, num_episodes=num_episodes, learning_rate=0.001, gamma=0.9, batch_size=batch_size, memory_size=memory_size)
+        _, policy3l, rewards_3l = train(env_dqn, dqn, num_episodes=num_episodes, learning_rate=0.001, gamma=0.8, batch_size=batch_size, memory_size=memory_size)
     else:
         # Stochastic case
-        _, policy3l, rewards_3l = train(env_dqn, dqn, num_episodes=num_episodes, learning_rate=0.001, gamma=0.995, batch_size=batch_size, memory_size=memory_size)
+        _, policy3l, rewards_3l = train(env_dqn, dqn, num_episodes=num_episodes, learning_rate=0.001, gamma=0.9, batch_size=batch_size, memory_size=memory_size)
 
     print("Training completed for DQN")
 
@@ -254,8 +207,6 @@ def main():
     else:
         print("Invalid option...")
         exit()
-
-    # TODO: Try to increase alpha for 4x4 in DQN
 
 if __name__=="__main__":
     main()

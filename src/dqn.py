@@ -26,6 +26,19 @@ def get_n_actions(env:gym.Env):
 def get_n_observations(env:gym.Env):
     return env.observation_space.n
 
+class DQN(nn.Module):
+    def __init__(self, input_states, hidden_nodes, out_states):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_states, hidden_nodes),
+            nn.ReLU(),
+            nn.Linear(hidden_nodes, out_states)
+        )
+
+    def forward(self, x):
+        x = self.net(x)
+        return x
+
 class DQN2L(nn.Module):
 
     def __init__(self, n_observations, n_actions):
@@ -41,9 +54,9 @@ class DQN3L(nn.Module):
 
     def __init__(self, n_observations, n_actions):
         super(DQN3L, self).__init__()
-        self.layer1 = nn.Linear(n_observations, 32)
-        self.layer2 = nn.Linear(32, 16)
-        self.layer3 = nn.Linear(16, n_actions)
+        self.layer1 = nn.Linear(n_observations, 128)
+        self.layer2 = nn.Linear(128, 64)
+        self.layer3 = nn.Linear(64, n_actions)
 
     def forward(self, x):
         x = F.relu(self.layer1(x))
@@ -179,6 +192,7 @@ def optimize_model(optimizer, policy_net, memory, batch_size=128, gamma=0.95):
 
     optimizer.zero_grad()
     loss.backward()
+    torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
     optimizer.step()
 
 
@@ -194,8 +208,15 @@ def train(env:gym.Env, policy_net: nn.Module, num_episodes=50, learning_rate=0.1
     memory = ReplayMemory(memory_size)
 
     policy_net.train()
+
     
     for episode in range(num_episodes):
+
+        # print every 1000 episodes the status
+        if episode % 1000 == 0:
+            percent = (episode/num_episodes) * 100
+            print(f"Training {percent:.2f}%", end='\r', flush=True)
+        
         state_idx, info = env.reset()
 
         # One unsqueeze to get shape [1,16 in the 4x4 case]
@@ -222,11 +243,14 @@ def train(env:gym.Env, policy_net: nn.Module, num_episodes=50, learning_rate=0.1
             memory.push(state, action, next_state, torch.tensor([reward], device=device))
 
             state = next_state
-
+            
+            if len(memory) < batch_size:
+                continue    
+            
             optimize_model(optimizer=optimizer, policy_net=policy_net, memory=memory, batch_size=batch_size, gamma=gamma)
 
         rewards_per_episodes[episode] = (1 if total_reward > 0 else 0)
-        
+    print()
 
     with torch.no_grad():
         all_states = torch.eye(n_observations, device=device)

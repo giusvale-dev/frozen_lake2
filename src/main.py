@@ -1,24 +1,11 @@
 from qlearning import train_deterministic, build_env, run_agent, train_stochastic
-from dqn import DQN, DQN2L, DQN3L, DQN4L, get_device, make_env, train, run_trained_agent
+from dqn import DQN, make_env, train, run_trained_agent
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from util import epsilon_decay
-import pandas as pd
 
-
-gamma_label = '\u03B3'
-alpha_label = '\u03B1'
-epsilon_label = '\u03B5'
-
-NUM_EPISODES_4x4 = 5000
-NUM_EPISODES_8x8 = 10000
-MEMORY_SIZE = 10000
-MEMORY_SIZE_8x8 = 50000
-BATCH_SIZE = 64
-BATCH_SIZE_8x8 = 128
-
-def plot_epsilon_decay(title: str, saveas: str, num_episodes = NUM_EPISODES_4x4):
+def plot_epsilon_decay(title: str, saveas: str, num_episodes):
     buffer = []
     for i in range(num_episodes):
         epsilon = epsilon_decay(i, epsilon_min=0.05, epsilon_start=0.9,  num_episodes = num_episodes)
@@ -79,7 +66,7 @@ def dqn_vs_qlearning_4x4(stochastic: bool):
     if stochastic:
         _, qlearning_policy, qlearning_rewards = train_stochastic(env=q_learning_env, epsilon_start=1, num_episodes=num_episodes, learning_rate=0.1, discount_factor=0.995)
     else:
-        _, qlearning_policy, qlearning_rewards = train_deterministic(env=q_learning_env, epsilon_start=1, num_episodes=num_episodes, discount_factor=0.995)
+        _, qlearning_policy, qlearning_rewards = train_deterministic(env=q_learning_env, epsilon_start=1, num_episodes=num_episodes, discount_factor=0.9)
     print("Q-learning training completed.")
 
     # Train DQNs
@@ -90,7 +77,7 @@ def dqn_vs_qlearning_4x4(stochastic: bool):
     policy2l = None
     rewards_2l = None
     if not stochastic:
-        _, policy2l, rewards_2l = train(env2l, dqn2l, num_episodes=num_episodes, learning_rate=0.001, gamma=0.8, batch_size=batch_size, memory_size=memory_size)
+        _, policy2l, rewards_2l = train(env2l, dqn2l, num_episodes=num_episodes, learning_rate=0.001, gamma=0.9, batch_size=batch_size, memory_size=memory_size)
     else:
         _, policy2l, rewards_2l = train(env2l, dqn2l, num_episodes=num_episodes, learning_rate=0.001, gamma=0.995, batch_size=batch_size, memory_size=memory_size)
     print("Training completed for DQN")
@@ -117,18 +104,30 @@ def dqn_vs_qlearning_4x4(stochastic: bool):
     print(f"Q-Learning: accuracy after training is {accuracy * 100:.2f}%")
     print("Evaluation completed for Q-Learning")
     
-    running_series = { 
-        "DQN ": running_series2l,
-        "Q-learning": running_qlearning_series
-    }
+    if not stochastic:
+        # In deterministic case to avoid the overlap we generate 2 plots one for each curve
+        running_series = { 
+            "DQN ": running_series2l
+        }
+        plot_wins_vs_episodes(series_dict=running_series, num_episodes=num_episodes, title="Wins vs Episode (Evaluation)", saveas=f"dqn_vs_qlearning_evaluation_4x4_deterministic_dqn.png")
+        running_series.clear()
 
-    plot_wins_vs_episodes(series_dict=running_series, num_episodes=num_episodes, title="Wins vs Episode (Evaluation)", saveas=f"dqn_vs_qlearning_evaluation_4x4_{"stochastic" if stochastic else "deterministic"}.png")
-
+        running_series = { 
+            "Q-learning": running_qlearning_series
+        }
+        plot_wins_vs_episodes(series_dict=running_series, num_episodes=num_episodes, title="Wins vs Episode (Evaluation)", saveas=f"dqn_vs_qlearning_evaluation_4x4_deterministic_qlearning.png")
+    else:
+        running_series = { 
+            "DQN ": running_series2l,
+            "Q-learning": running_qlearning_series
+        }
+        plot_wins_vs_episodes(series_dict=running_series, num_episodes=num_episodes, title="Wins vs Episode (Evaluation)", saveas=f"dqn_vs_qlearning_evaluation_4x4_stochastic.png") 
+   
 def dqn_vs_qlearning_8x8(stochastic: bool):
 
     qlearning_rewards = []
     qlearning_policy = None
-    num_episodes = 15000
+    num_episodes = 20000
     batch_size = 64
     memory_size = 10000
 
@@ -138,7 +137,7 @@ def dqn_vs_qlearning_8x8(stochastic: bool):
     if stochastic:
         _, qlearning_policy, qlearning_rewards = train_stochastic(env=q_learning_env, epsilon_start=1, num_episodes=num_episodes, learning_rate=0.1, discount_factor=0.9)
     else:
-        _, qlearning_policy, qlearning_rewards = train_deterministic(env=q_learning_env, epsilon_start=1, num_episodes=num_episodes, discount_factor=0.9)
+        _, qlearning_policy, qlearning_rewards = train_deterministic(env=q_learning_env, epsilon_start=1, num_episodes=num_episodes, discount_factor=0.995)
     print("Q-learning training completed.")
 
     env_dqn = make_env(is_slippery=stochastic, map_name="8x8", render_mode=None)
@@ -151,7 +150,7 @@ def dqn_vs_qlearning_8x8(stochastic: bool):
         _, policy3l, rewards_3l = train(env_dqn, dqn, num_episodes=num_episodes, learning_rate=0.001, gamma=0.8, batch_size=batch_size, memory_size=memory_size)
     else:
         # Stochastic case
-        _, policy3l, rewards_3l = train(env_dqn, dqn, num_episodes=num_episodes, learning_rate=0.001, gamma=0.9, batch_size=batch_size, memory_size=memory_size)
+        _, policy3l, rewards_3l = train(env_dqn, dqn, num_episodes=num_episodes, learning_rate=0.01, gamma=0.9, batch_size=batch_size, memory_size=memory_size)
 
     print("Training completed for DQN")
 
@@ -176,13 +175,26 @@ def dqn_vs_qlearning_8x8(stochastic: bool):
     accuracy = np.sum(running_qlearning_series)/num_episodes
     print(f"Q-Learning: accuracy after training is {accuracy * 100:.2f}%")
     print("Evaluation completed for Q-Learning")
-    
-    running_series = { 
-        "DQN ": running_series2l,
-        "Q-learning": running_qlearning_series
-    }
+   
+    if not stochastic:
+        # In deterministic case to avoid the overlap we generate 2 plots one for each curve
+        running_series = { 
+            "DQN ": running_series2l
+        }
+        
+        plot_wins_vs_episodes(series_dict=running_series, num_episodes=num_episodes, title="Wins vs Episode (Evaluation)", saveas=f"dqn_vs_qlearning_evaluation_8x8_deterministic_dqn.png")
+        running_series.clear()
 
-    plot_wins_vs_episodes(series_dict=running_series, num_episodes=num_episodes, title="Wins vs Episode (Evaluation)", saveas=f"dqn_vs_qlearning_evaluation_8x8_{"stochastic" if stochastic else "deterministic"}.png")
+        running_series = { 
+            "Q-learning": running_qlearning_series
+        }
+        plot_wins_vs_episodes(series_dict=running_series, num_episodes=num_episodes, title="Wins vs Episode (Evaluation)", saveas=f"dqn_vs_qlearning_evaluation_8x8_deterministic_qlearning.png")
+    else:
+        running_series = { 
+            "DQN ": running_series2l,
+            "Q-learning": running_qlearning_series
+        }
+        plot_wins_vs_episodes(series_dict=running_series, num_episodes=num_episodes, title="Wins vs Episode (Evaluation)", saveas=f"dqn_vs_qlearning_evaluation_8x8_stochastic.png")
 
 def main():
     selection = input(
@@ -203,7 +215,7 @@ def main():
     elif selection == "4":
         dqn_vs_qlearning_8x8(False)
     elif selection == "5":
-        plot_epsilon_decay("Epsilon Decay", "epsilon_decay")
+        plot_epsilon_decay("Epsilon Decay", "epsilon_decay", 20000)
     else:
         print("Invalid option...")
         exit()

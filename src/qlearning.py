@@ -110,7 +110,7 @@ def train_stochastic(
 
             if reward == 1:
                 rewards_per_episodes[episode] = 1
-        
+
         epsilon = epsilon_decay(episode=episode, epsilon_start=epsilon_start, num_episodes=num_episodes)
 
     policy = np.argmax(Q, axis=1)

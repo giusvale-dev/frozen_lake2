@@ -107,7 +107,6 @@ def train(env:gym.Env, policy_net: nn.Module, num_episodes=50, learning_rate=0.1
 
     policy_net.train()
 
-    
     for episode in range(num_episodes):
 
         # print every 1000 episodes the status
@@ -123,7 +122,7 @@ def train(env:gym.Env, policy_net: nn.Module, num_episodes=50, learning_rate=0.1
         total_reward = 0
         done = False
 
-        epsilon = epsilon_decay(episode=episode, num_episodes=num_episodes)
+        epsilon = epsilon_decay(episode=episode, epsilon_start=1, num_episodes=num_episodes)
 
         while not done:
             action = select_action(state, n_actions, policy_net, device, epsilon)
